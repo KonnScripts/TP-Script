@@ -1,0 +1,339 @@
+local player = game.Players.LocalPlayer
+local userInputService = game:GetService("UserInputService")
+local tweenService = game:GetService("TweenService")
+
+-- Create the GUI in CoreGui or PlayerGui with ResetOnSpawn set to false
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "TeleportGUI"
+screenGui.ResetOnSpawn = false -- This makes the GUI persist after death
+
+-- Try to place in CoreGui for the best persistence, fallback to PlayerGui
+local success, errorMsg = pcall(function()
+    screenGui.Parent = game:GetService("CoreGui")
+end)
+
+if not success then
+    screenGui.Parent = player.PlayerGui
+end
+
+local mainFrame = Instance.new("Frame", screenGui)
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 220, 0, 140)
+mainFrame.Position = UDim2.new(0.5, -110, 0.5, -70)
+mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+mainFrame.BorderSizePixel = 0
+
+-- Round the corners
+local uiCorner = Instance.new("UICorner", mainFrame)
+uiCorner.CornerRadius = UDim.new(0, 8)
+
+-- Add drop shadow
+local uiStroke = Instance.new("UIStroke", mainFrame)
+uiStroke.Color = Color3.fromRGB(20, 20, 30)
+uiStroke.Thickness = 2
+
+-- Title bar
+local titleBar = Instance.new("Frame", mainFrame)
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 30)
+titleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+titleBar.BorderSizePixel = 0
+
+-- Round the top corners of the title bar
+local titleCorner = Instance.new("UICorner", titleBar)
+titleCorner.CornerRadius = UDim.new(0, 8)
+
+-- Create a frame to mask the bottom corners of the title bar
+local bottomMask = Instance.new("Frame", titleBar)
+bottomMask.Name = "BottomMask"
+bottomMask.Size = UDim2.new(1, 0, 0.5, 0)
+bottomMask.Position = UDim2.new(0, 0, 0.5, 0)
+bottomMask.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+bottomMask.BorderSizePixel = 0
+
+-- Title text
+local titleText = Instance.new("TextLabel", titleBar)
+titleText.Name = "TitleText"
+titleText.Size = UDim2.new(1, -10, 1, 0)
+titleText.Position = UDim2.new(0, 10, 0, 0)
+titleText.BackgroundTransparency = 1
+titleText.Text = "Player Teleporter"
+titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleText.Font = Enum.Font.GothamBold
+titleText.TextSize = 14
+titleText.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Close button
+local closeButton = Instance.new("TextButton", titleBar)
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 24, 0, 24)
+closeButton.Position = UDim2.new(1, -27, 0, 3)
+closeButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+closeButton.Text = "×"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextSize = 18
+closeButton.AutoButtonColor = false
+
+-- Round the close button
+local closeCorner = Instance.new("UICorner", closeButton)
+closeCorner.CornerRadius = UDim.new(0, 4)
+
+-- Input area
+local inputFrame = Instance.new("Frame", mainFrame)
+inputFrame.Name = "InputFrame"
+inputFrame.Size = UDim2.new(1, -20, 0, 40)
+inputFrame.Position = UDim2.new(0, 10, 0, 40)
+inputFrame.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+inputFrame.BorderSizePixel = 0
+
+-- Round the input frame
+local inputCorner = Instance.new("UICorner", inputFrame)
+inputCorner.CornerRadius = UDim.new(0, 6)
+
+-- Username input
+local textBox = Instance.new("TextBox", inputFrame)
+textBox.Name = "UsernameInput"
+textBox.Size = UDim2.new(1, -10, 1, 0)
+textBox.Position = UDim2.new(0, 5, 0, 0)
+textBox.BackgroundTransparency = 1
+textBox.PlaceholderText = "Enter Username"
+textBox.Text = ""
+textBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 160)
+textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+textBox.Font = Enum.Font.Gotham
+textBox.TextSize = 14
+textBox.ClearTextOnFocus = false
+
+-- Teleport button
+local button = Instance.new("TextButton", mainFrame)
+button.Name = "TeleportButton"
+button.Size = UDim2.new(1, -20, 0, 40)
+button.Position = UDim2.new(0, 10, 0, 90)
+button.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+button.Text = "Teleport"
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.Font = Enum.Font.GothamBold
+button.TextSize = 16
+button.BorderSizePixel = 0
+button.AutoButtonColor = false
+
+-- Round the button
+local buttonCorner = Instance.new("UICorner", button)
+buttonCorner.CornerRadius = UDim.new(0, 6)
+
+-- Status label (for showing errors or success messages)
+local statusLabel = Instance.new("TextLabel", mainFrame)
+statusLabel.Name = "StatusLabel"
+statusLabel.Size = UDim2.new(1, -10, 0, 16)
+statusLabel.Position = UDim2.new(0, 5, 1, -20)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = ""
+statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+statusLabel.Font = Enum.Font.Gotham
+statusLabel.TextSize = 12
+statusLabel.TextXAlignment = Enum.TextXAlignment.Center
+
+-- Make the GUI draggable
+local dragging = false
+local dragInput
+local dragStart
+local startPos
+
+local function updatePosition(input)
+    local delta = input.Position - dragStart
+    mainFrame.Position = UDim2.new(
+        startPos.X.Scale, 
+        startPos.X.Offset + delta.X, 
+        startPos.Y.Scale, 
+        startPos.Y.Offset + delta.Y
+    )
+end
+
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+titleBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+userInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        updatePosition(input)
+    end
+end)
+
+-- Button hover effects
+button.MouseEnter:Connect(function()
+    tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0, 145, 220)}):Play()
+end)
+
+button.MouseLeave:Connect(function()
+    tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0, 170, 255)}):Play()
+end)
+
+closeButton.MouseEnter:Connect(function()
+    tweenService:Create(closeButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(230, 60, 60)}):Play()
+end)
+
+closeButton.MouseLeave:Connect(function()
+    tweenService:Create(closeButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 80, 80)}):Play()
+end)
+
+-- Button click effects
+button.MouseButton1Down:Connect(function()
+    tweenService:Create(button, TweenInfo.new(0.1), {Size = UDim2.new(1, -24, 0, 38), Position = UDim2.new(0, 12, 0, 91)}):Play()
+end)
+
+button.MouseButton1Up:Connect(function()
+    tweenService:Create(button, TweenInfo.new(0.1), {Size = UDim2.new(1, -20, 0, 40), Position = UDim2.new(0, 10, 0, 90)}):Play()
+end)
+
+-- Close button functionality
+closeButton.MouseButton1Click:Connect(function()
+    screenGui:Destroy()
+end)
+
+-- Function to handle teleportation
+local function teleportToPlayer(username)
+    if username == "" then
+        statusLabel.Text = "Please enter a username"
+        statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+        return
+    end
+    
+    statusLabel.Text = "Searching for player..."
+    statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    
+    local targetPlayer = game.Players:FindFirstChild(username)
+    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local targetCFrame = targetPlayer.Character.HumanoidRootPart.CFrame
+        local localCharacter = player.Character
+        
+        if localCharacter and localCharacter:FindFirstChild("HumanoidRootPart") then
+            statusLabel.Text = "Teleporting to " .. targetPlayer.Name
+            statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+            
+            -- Create a teleport effect
+            local effect = Instance.new("Part", workspace)
+            effect.Shape = Enum.PartType.Ball
+            effect.Material = Enum.Material.Neon
+            effect.Size = Vector3.new(2, 2, 2)
+            effect.Position = localCharacter.HumanoidRootPart.Position
+            effect.Anchored = true
+            effect.CanCollide = false
+            effect.Transparency = 0.3
+            effect.Color = Color3.fromRGB(0, 200, 255)
+            
+            -- Animate the effect
+            tweenService:Create(effect, TweenInfo.new(0.5), {Size = Vector3.new(0, 0, 0), Transparency = 1}):Play()
+            
+            -- Teleport after a short delay
+            task.delay(0.2, function()
+                -- Use CFrame for proper teleportation
+                -- Adding a small Y offset to prevent being stuck in the ground
+                local teleportCFrame = CFrame.new(
+                    targetCFrame.Position + Vector3.new(0, 3, 0),
+                    targetCFrame.Position + targetCFrame.LookVector * 5
+                )
+                
+                -- Set both CFrame and Position for better compatibility
+                localCharacter.HumanoidRootPart.CFrame = teleportCFrame
+                
+                -- Create arrival effect
+                local arrivalEffect = Instance.new("Part", workspace)
+                arrivalEffect.Shape = Enum.PartType.Ball
+                arrivalEffect.Material = Enum.Material.Neon
+                arrivalEffect.Size = Vector3.new(0, 0, 0)
+                arrivalEffect.Position = teleportCFrame.Position
+                arrivalEffect.Anchored = true
+                arrivalEffect.CanCollide = false
+                arrivalEffect.Transparency = 1
+                arrivalEffect.Color = Color3.fromRGB(0, 200, 255)
+                
+                -- Animate arrival effect
+                tweenService:Create(arrivalEffect, TweenInfo.new(0.5), {Size = Vector3.new(5, 5, 5), Transparency = 0.3}):Play()
+                task.delay(0.5, function()
+                    tweenService:Create(arrivalEffect, TweenInfo.new(0.5), {Size = Vector3.new(0, 0, 0), Transparency = 1}):Play()
+                    task.delay(0.5, function()
+                        arrivalEffect:Destroy()
+                    end)
+                end)
+                
+                task.delay(1, function()
+                    statusLabel.Text = "Teleported successfully!"
+                    task.delay(3, function()
+                        statusLabel.Text = ""
+                    end)
+                end)
+            end)
+            
+            -- Clean up the first effect
+            task.delay(0.5, function()
+                effect:Destroy()
+            end)
+        else
+            statusLabel.Text = "Your character is missing!"
+            statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+            task.delay(2, function()
+                statusLabel.Text = ""
+            end)
+        end
+    else
+        statusLabel.Text = "Player not found!"
+        statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+        
+        -- Shake the input box to indicate error
+        local originalPosition = inputFrame.Position
+        for i = 1, 5 do
+            inputFrame.Position = originalPosition + UDim2.new(0, (i % 2 == 0) and 5 or -5, 0, 0)
+            task.wait(0.05)
+        end
+        inputFrame.Position = originalPosition
+        
+        task.delay(2, function()
+            statusLabel.Text = ""
+        end)
+    end
+end
+
+-- Connect button click to teleportation function
+button.MouseButton1Click:Connect(function()
+    teleportToPlayer(textBox.Text)
+end)
+
+-- Connect Enter key in textbox to teleportation function
+textBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        teleportToPlayer(textBox.Text)
+    end
+end)
+
+-- Check if there's an existing TeleportGUI and remove it
+for _, gui in pairs(player.PlayerGui:GetChildren()) do
+    if gui.Name == "TeleportGUI" and gui ~= screenGui then
+        gui:Destroy()
+    end
+end
+
+-- Also check CoreGui
+pcall(function()
+    for _, gui in pairs(game:GetService("CoreGui"):GetChildren()) do
+        if gui.Name == "TeleportGUI" and gui ~= screenGui then
+            gui:Destroy()
+        end
+    end
+end)

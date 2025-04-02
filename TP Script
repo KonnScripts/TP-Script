@@ -18,8 +18,8 @@ end
 
 local mainFrame = Instance.new("Frame", screenGui)
 mainFrame.Name = "MainFrame"
-mainFrame.Size = UDim2.new(0, 220, 0, 140)
-mainFrame.Position = UDim2.new(0.5, -110, 0.5, -70)
+mainFrame.Size = UDim2.new(0, 220, 0, 210) -- Made taller to accommodate dropdown
+mainFrame.Position = UDim2.new(0.5, -110, 0.5, -105)
 mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
 mainFrame.BorderSizePixel = 0
 
@@ -79,37 +79,68 @@ closeButton.AutoButtonColor = false
 local closeCorner = Instance.new("UICorner", closeButton)
 closeCorner.CornerRadius = UDim.new(0, 4)
 
--- Input area
-local inputFrame = Instance.new("Frame", mainFrame)
-inputFrame.Name = "InputFrame"
-inputFrame.Size = UDim2.new(1, -20, 0, 40)
-inputFrame.Position = UDim2.new(0, 10, 0, 40)
-inputFrame.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-inputFrame.BorderSizePixel = 0
+-- Player selection label
+local selectorLabel = Instance.new("TextLabel", mainFrame)
+selectorLabel.Name = "SelectorLabel"
+selectorLabel.Size = UDim2.new(1, -20, 0, 20)
+selectorLabel.Position = UDim2.new(0, 10, 0, 40)
+selectorLabel.BackgroundTransparency = 1
+selectorLabel.Text = "Select a Player:"
+selectorLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+selectorLabel.Font = Enum.Font.Gotham
+selectorLabel.TextSize = 12
+selectorLabel.TextXAlignment = Enum.TextXAlignment.Left
 
--- Round the input frame
-local inputCorner = Instance.new("UICorner", inputFrame)
-inputCorner.CornerRadius = UDim.new(0, 6)
+-- Dropdown button
+local dropdownButton = Instance.new("TextButton", mainFrame)
+dropdownButton.Name = "DropdownButton"
+dropdownButton.Size = UDim2.new(1, -20, 0, 40)
+dropdownButton.Position = UDim2.new(0, 10, 0, 65)
+dropdownButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+dropdownButton.Text = "Select Player"
+dropdownButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+dropdownButton.Font = Enum.Font.Gotham
+dropdownButton.TextSize = 14
+dropdownButton.BorderSizePixel = 0
+dropdownButton.AutoButtonColor = false
 
--- Username input
-local textBox = Instance.new("TextBox", inputFrame)
-textBox.Name = "UsernameInput"
-textBox.Size = UDim2.new(1, -10, 1, 0)
-textBox.Position = UDim2.new(0, 5, 0, 0)
-textBox.BackgroundTransparency = 1
-textBox.PlaceholderText = "Enter Username"
-textBox.Text = ""
-textBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 160)
-textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-textBox.Font = Enum.Font.Gotham
-textBox.TextSize = 14
-textBox.ClearTextOnFocus = false
+-- Add a small indicator for the dropdown
+local dropdownIndicator = Instance.new("TextLabel", dropdownButton)
+dropdownIndicator.Name = "Indicator"
+dropdownIndicator.Size = UDim2.new(0, 20, 0, 20)
+dropdownIndicator.Position = UDim2.new(1, -25, 0.5, -10)
+dropdownIndicator.BackgroundTransparency = 1
+dropdownIndicator.Text = "▼"
+dropdownIndicator.TextColor3 = Color3.fromRGB(200, 200, 200)
+dropdownIndicator.Font = Enum.Font.Gotham
+dropdownIndicator.TextSize = 12
+
+-- Round the dropdown button
+local dropdownCorner = Instance.new("UICorner", dropdownButton)
+dropdownCorner.CornerRadius = UDim.new(0, 6)
+
+-- Create dropdown menu container (initially hidden)
+local dropdownContainer = Instance.new("ScrollingFrame", mainFrame)
+dropdownContainer.Name = "DropdownContainer"
+dropdownContainer.Size = UDim2.new(1, -20, 0, 0) -- Start with height 0
+dropdownContainer.Position = UDim2.new(0, 10, 0, 110) -- Position it below the dropdown button
+dropdownContainer.BackgroundColor3 = Color3.fromRGB(65, 65, 75)
+dropdownContainer.BorderSizePixel = 0
+dropdownContainer.ScrollBarThickness = 4
+dropdownContainer.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 120)
+dropdownContainer.Visible = false
+dropdownContainer.ClipsDescendants = true
+dropdownContainer.CanvasSize = UDim2.new(0, 0, 0, 0) -- Will be updated dynamically
+
+-- Round the dropdown container
+local containerCorner = Instance.new("UICorner", dropdownContainer)
+containerCorner.CornerRadius = UDim.new(0, 6)
 
 -- Teleport button
 local button = Instance.new("TextButton", mainFrame)
 button.Name = "TeleportButton"
 button.Size = UDim2.new(1, -20, 0, 40)
-button.Position = UDim2.new(0, 10, 0, 90)
+button.Position = UDim2.new(0, 10, 0, 115) -- Adjusted position
 button.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
 button.Text = "Teleport"
 button.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -126,13 +157,16 @@ buttonCorner.CornerRadius = UDim.new(0, 6)
 local statusLabel = Instance.new("TextLabel", mainFrame)
 statusLabel.Name = "StatusLabel"
 statusLabel.Size = UDim2.new(1, -10, 0, 16)
-statusLabel.Position = UDim2.new(0, 5, 1, -20)
+statusLabel.Position = UDim2.new(0, 5, 1, -25)
 statusLabel.BackgroundTransparency = 1
 statusLabel.Text = ""
 statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 statusLabel.Font = Enum.Font.Gotham
 statusLabel.TextSize = 12
 statusLabel.TextXAlignment = Enum.TextXAlignment.Center
+
+-- Selected player variable
+local selectedPlayer = nil
 
 -- Make the GUI draggable
 local dragging = false
@@ -176,7 +210,143 @@ userInputService.InputChanged:Connect(function(input)
     end
 end)
 
+-- Function to populate the dropdown with players
+local function populateDropdown()
+    -- Clear existing items
+    for _, child in pairs(dropdownContainer:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+    
+    -- Get all players sorted by name
+    local players = {}
+    for _, plr in pairs(game.Players:GetPlayers()) do
+        if plr ~= player then -- Don't include local player
+            table.insert(players, plr)
+        end
+    end
+    
+    table.sort(players, function(a, b)
+        return a.Name:lower() < b.Name:lower()
+    end)
+    
+    -- Create dropdown items
+    local itemHeight = 30
+    local totalHeight = 0
+    
+    for i, plr in ipairs(players) do
+        local playerButton = Instance.new("TextButton", dropdownContainer)
+        playerButton.Name = "Player_" .. plr.Name
+        playerButton.Size = UDim2.new(1, -4, 0, itemHeight)
+        playerButton.Position = UDim2.new(0, 2, 0, (i-1) * itemHeight + 2)
+        playerButton.BackgroundColor3 = i % 2 == 0 and Color3.fromRGB(60, 60, 70) or Color3.fromRGB(55, 55, 65)
+        playerButton.Text = plr.Name
+        playerButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        playerButton.Font = Enum.Font.Gotham
+        playerButton.TextSize = 14
+        playerButton.BorderSizePixel = 0
+        playerButton.TextXAlignment = Enum.TextXAlignment.Left
+        playerButton.AutoButtonColor = false
+        
+        -- Add padding to text
+        local textPadding = Instance.new("UIPadding", playerButton)
+        textPadding.PaddingLeft = UDim.new(0, 10)
+        
+        -- Round the button corners
+        local itemCorner = Instance.new("UICorner", playerButton)
+        itemCorner.CornerRadius = UDim.new(0, 4)
+        
+        -- Hover effect
+        playerButton.MouseEnter:Connect(function()
+            tweenService:Create(playerButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(75, 75, 85)}):Play()
+        end)
+        
+        playerButton.MouseLeave:Connect(function()
+            tweenService:Create(playerButton, TweenInfo.new(0.1), {BackgroundColor3 = i % 2 == 0 and Color3.fromRGB(60, 60, 70) or Color3.fromRGB(55, 55, 65)}):Play()
+        end)
+        
+        -- Selection functionality
+        playerButton.MouseButton1Click:Connect(function()
+            selectedPlayer = plr
+            dropdownButton.Text = plr.Name
+            
+            -- Close dropdown with animation
+            toggleDropdown(false)
+        end)
+        
+        totalHeight = totalHeight + itemHeight + 2
+    end
+    
+    -- Update canvas size
+    dropdownContainer.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
+    
+    return #players
+end
+
+-- Toggle dropdown function
+local isDropdownOpen = false
+function toggleDropdown(forceState)
+    local state = forceState
+    if state == nil then
+        state = not isDropdownOpen
+    end
+    
+    isDropdownOpen = state
+    
+    if state then
+        -- Update player list before showing
+        local playerCount = populateDropdown()
+        
+        -- Show dropdown
+        dropdownContainer.Visible = true
+        
+        -- Set max height based on players (max 5 visible at once)
+        local maxPlayerCount = math.min(playerCount, 5)
+        local targetHeight = maxPlayerCount * 30 + 4
+        
+        -- Adjust button position
+        tweenService:Create(button, TweenInfo.new(0.3), {Position = UDim2.new(0, 10, 0, 115 + targetHeight + 5)}):Play()
+        
+        -- Adjust main frame size
+        tweenService:Create(mainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 220, 0, 170 + targetHeight)}):Play()
+        
+        -- Animate dropdown opening
+        tweenService:Create(dropdownContainer, TweenInfo.new(0.3), {Size = UDim2.new(1, -20, 0, targetHeight)}):Play()
+        
+        -- Rotate dropdown indicator
+        tweenService:Create(dropdownIndicator, TweenInfo.new(0.3), {Rotation = 180}):Play()
+    else
+        -- Animate dropdown closing
+        tweenService:Create(dropdownContainer, TweenInfo.new(0.3), {Size = UDim2.new(1, -20, 0, 0)}):Play()
+        
+        -- Move button back up
+        tweenService:Create(button, TweenInfo.new(0.3), {Position = UDim2.new(0, 10, 0, 115)}):Play()
+        
+        -- Adjust main frame size back
+        tweenService:Create(mainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 220, 0, 170)}):Play()
+        
+        -- Rotate dropdown indicator back
+        tweenService:Create(dropdownIndicator, TweenInfo.new(0.3), {Rotation = 0}):Play()
+        
+        -- Hide dropdown after animation completes
+        task.delay(0.3, function()
+            if not isDropdownOpen then
+                dropdownContainer.Visible = false
+            end
+        end)
+    end
+end
+
 -- Button hover effects
+dropdownButton.MouseEnter:Connect(function()
+    tweenService:Create(dropdownButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(65, 65, 75)}):Play()
+end)
+
+dropdownButton.MouseLeave:Connect(function()
+    tweenService:Create(dropdownButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+end)
+
 button.MouseEnter:Connect(function()
     tweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0, 145, 220)}):Play()
 end)
@@ -195,11 +365,16 @@ end)
 
 -- Button click effects
 button.MouseButton1Down:Connect(function()
-    tweenService:Create(button, TweenInfo.new(0.1), {Size = UDim2.new(1, -24, 0, 38), Position = UDim2.new(0, 12, 0, 91)}):Play()
+    tweenService:Create(button, TweenInfo.new(0.1), {Size = UDim2.new(1, -24, 0, 38), Position = UDim2.new(0, 12, button.Position.Y.Scale, button.Position.Y.Offset + 1)}):Play()
 end)
 
 button.MouseButton1Up:Connect(function()
-    tweenService:Create(button, TweenInfo.new(0.1), {Size = UDim2.new(1, -20, 0, 40), Position = UDim2.new(0, 10, 0, 90)}):Play()
+    tweenService:Create(button, TweenInfo.new(0.1), {Size = UDim2.new(1, -20, 0, 40), Position = UDim2.new(0, 10, button.Position.Y.Scale, button.Position.Y.Offset - 1)}):Play()
+end)
+
+-- Dropdown button click
+dropdownButton.MouseButton1Click:Connect(function()
+    toggleDropdown()
 end)
 
 -- Close button functionality
@@ -208,102 +383,99 @@ closeButton.MouseButton1Click:Connect(function()
 end)
 
 -- Function to handle teleportation
-local function teleportToPlayer(username)
-    if username == "" then
-        statusLabel.Text = "Please enter a username"
+local function teleportToPlayer()
+    if not selectedPlayer then
+        statusLabel.Text = "Please select a player"
         statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+        
+        -- Shake the dropdown button
+        local originalPosition = dropdownButton.Position
+        for i = 1, 5 do
+            dropdownButton.Position = originalPosition + UDim2.new(0, (i % 2 == 0) and 5 or -5, 0, 0)
+            task.wait(0.05)
+        end
+        dropdownButton.Position = originalPosition
+        
         return
     end
     
-    statusLabel.Text = "Searching for player..."
-    statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    
-    local targetPlayer = game.Players:FindFirstChild(username)
-    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local targetCFrame = targetPlayer.Character.HumanoidRootPart.CFrame
-        local localCharacter = player.Character
-        
-        if localCharacter and localCharacter:FindFirstChild("HumanoidRootPart") then
-            statusLabel.Text = "Teleporting to " .. targetPlayer.Name
-            statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-            
-            -- Create a teleport effect
-            local effect = Instance.new("Part", workspace)
-            effect.Shape = Enum.PartType.Ball
-            effect.Material = Enum.Material.Neon
-            effect.Size = Vector3.new(2, 2, 2)
-            effect.Position = localCharacter.HumanoidRootPart.Position
-            effect.Anchored = true
-            effect.CanCollide = false
-            effect.Transparency = 0.3
-            effect.Color = Color3.fromRGB(0, 200, 255)
-            
-            -- Animate the effect
-            tweenService:Create(effect, TweenInfo.new(0.5), {Size = Vector3.new(0, 0, 0), Transparency = 1}):Play()
-            
-            -- Teleport after a short delay
-            task.delay(0.2, function()
-                -- Use CFrame for proper teleportation
-                -- Adding a small Y offset to prevent being stuck in the ground
-                local teleportCFrame = CFrame.new(
-                    targetCFrame.Position + Vector3.new(0, 3, 0),
-                    targetCFrame.Position + targetCFrame.LookVector * 5
-                )
-                
-                -- Set both CFrame and Position for better compatibility
-                localCharacter.HumanoidRootPart.CFrame = teleportCFrame
-                
-                -- Create arrival effect
-                local arrivalEffect = Instance.new("Part", workspace)
-                arrivalEffect.Shape = Enum.PartType.Ball
-                arrivalEffect.Material = Enum.Material.Neon
-                arrivalEffect.Size = Vector3.new(0, 0, 0)
-                arrivalEffect.Position = teleportCFrame.Position
-                arrivalEffect.Anchored = true
-                arrivalEffect.CanCollide = false
-                arrivalEffect.Transparency = 1
-                arrivalEffect.Color = Color3.fromRGB(0, 200, 255)
-                
-                -- Animate arrival effect
-                tweenService:Create(arrivalEffect, TweenInfo.new(0.5), {Size = Vector3.new(5, 5, 5), Transparency = 0.3}):Play()
-                task.delay(0.5, function()
-                    tweenService:Create(arrivalEffect, TweenInfo.new(0.5), {Size = Vector3.new(0, 0, 0), Transparency = 1}):Play()
-                    task.delay(0.5, function()
-                        arrivalEffect:Destroy()
-                    end)
-                end)
-                
-                task.delay(1, function()
-                    statusLabel.Text = "Teleported successfully!"
-                    task.delay(3, function()
-                        statusLabel.Text = ""
-                    end)
-                end)
-            end)
-            
-            -- Clean up the first effect
-            task.delay(0.5, function()
-                effect:Destroy()
-            end)
-        else
-            statusLabel.Text = "Your character is missing!"
-            statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-            task.delay(2, function()
-                statusLabel.Text = ""
-            end)
-        end
-    else
-        statusLabel.Text = "Player not found!"
+    -- Check if selected player is still in game
+    if not selectedPlayer or not selectedPlayer.Parent or not selectedPlayer.Character or not selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        statusLabel.Text = "Player no longer available"
         statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+        selectedPlayer = nil
+        dropdownButton.Text = "Select Player"
+        return
+    end
+    
+    statusLabel.Text = "Teleporting to " .. selectedPlayer.Name
+    statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+    
+    local targetCFrame = selectedPlayer.Character.HumanoidRootPart.CFrame
+    local localCharacter = player.Character
+    
+    if localCharacter and localCharacter:FindFirstChild("HumanoidRootPart") then
+        -- Create a teleport effect
+        local effect = Instance.new("Part", workspace)
+        effect.Shape = Enum.PartType.Ball
+        effect.Material = Enum.Material.Neon
+        effect.Size = Vector3.new(2, 2, 2)
+        effect.Position = localCharacter.HumanoidRootPart.Position
+        effect.Anchored = true
+        effect.CanCollide = false
+        effect.Transparency = 0.3
+        effect.Color = Color3.fromRGB(0, 200, 255)
         
-        -- Shake the input box to indicate error
-        local originalPosition = inputFrame.Position
-        for i = 1, 5 do
-            inputFrame.Position = originalPosition + UDim2.new(0, (i % 2 == 0) and 5 or -5, 0, 0)
-            task.wait(0.05)
-        end
-        inputFrame.Position = originalPosition
+        -- Animate the effect
+        tweenService:Create(effect, TweenInfo.new(0.5), {Size = Vector3.new(0, 0, 0), Transparency = 1}):Play()
         
+        -- Teleport after a short delay
+        task.delay(0.2, function()
+            -- Use CFrame for proper teleportation
+            -- Adding a small Y offset to prevent being stuck in the ground
+            local teleportCFrame = CFrame.new(
+                targetCFrame.Position + Vector3.new(0, 3, 0),
+                targetCFrame.Position + targetCFrame.LookVector * 5
+            )
+            
+            -- Set CFrame for teleportation
+            localCharacter.HumanoidRootPart.CFrame = teleportCFrame
+            
+            -- Create arrival effect
+            local arrivalEffect = Instance.new("Part", workspace)
+            arrivalEffect.Shape = Enum.PartType.Ball
+            arrivalEffect.Material = Enum.Material.Neon
+            arrivalEffect.Size = Vector3.new(0, 0, 0)
+            arrivalEffect.Position = teleportCFrame.Position
+            arrivalEffect.Anchored = true
+            arrivalEffect.CanCollide = false
+            arrivalEffect.Transparency = 1
+            arrivalEffect.Color = Color3.fromRGB(0, 200, 255)
+            
+            -- Animate arrival effect
+            tweenService:Create(arrivalEffect, TweenInfo.new(0.5), {Size = Vector3.new(5, 5, 5), Transparency = 0.3}):Play()
+            task.delay(0.5, function()
+                tweenService:Create(arrivalEffect, TweenInfo.new(0.5), {Size = Vector3.new(0, 0, 0), Transparency = 1}):Play()
+                task.delay(0.5, function()
+                    arrivalEffect:Destroy()
+                end)
+            end)
+            
+            task.delay(1, function()
+                statusLabel.Text = "Teleported successfully!"
+                task.delay(3, function()
+                    statusLabel.Text = ""
+                end)
+            end)
+        end)
+        
+        -- Clean up the first effect
+        task.delay(0.5, function()
+            effect:Destroy()
+        end)
+    else
+        statusLabel.Text = "Your character is missing!"
+        statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
         task.delay(2, function()
             statusLabel.Text = ""
         end)
@@ -311,14 +483,37 @@ local function teleportToPlayer(username)
 end
 
 -- Connect button click to teleportation function
-button.MouseButton1Click:Connect(function()
-    teleportToPlayer(textBox.Text)
+button.MouseButton1Click:Connect(teleportToPlayer)
+
+-- Auto-update the player list when players join or leave
+game.Players.PlayerAdded:Connect(function()
+    -- If dropdown is open, update it
+    if isDropdownOpen then
+        populateDropdown()
+    end
+    
+    -- If selected player is no longer valid, reset selection
+    if selectedPlayer and not selectedPlayer.Parent then
+        selectedPlayer = nil
+        dropdownButton.Text = "Select Player"
+    end
 end)
 
--- Connect Enter key in textbox to teleportation function
-textBox.FocusLost:Connect(function(enterPressed)
-    if enterPressed then
-        teleportToPlayer(textBox.Text)
+game.Players.PlayerRemoving:Connect(function(plr)
+    -- If dropdown is open, update it
+    if isDropdownOpen then
+        populateDropdown()
+    end
+    
+    -- If selected player left, reset selection
+    if selectedPlayer == plr then
+        selectedPlayer = nil
+        dropdownButton.Text = "Select Player"
+        statusLabel.Text = "Selected player left the game"
+        statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+        task.delay(2, function()
+            statusLabel.Text = ""
+        end)
     end
 end)
 
@@ -333,6 +528,10 @@ end
 pcall(function()
     for _, gui in pairs(game:GetService("CoreGui"):GetChildren()) do
         if gui.Name == "TeleportGUI" and gui ~= screenGui then
+            gui:Destroy()
+        end
+    end
+end)
             gui:Destroy()
         end
     end
